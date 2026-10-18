@@ -13,6 +13,182 @@ let gameStateRef = null;
 let listenersSetup = false;
 const firebaseGameId = (window.GAME_THEME && window.GAME_THEME.id) || 'arroyo-poli';
 const firebaseRoomsPath = 'rooms/';
+const multiplayerSessionKey = 'arroyo-poli-multiplayer-session-v1';
+let sessionRestoreAttempted = false;
+let historyGuardActive = false;
+let navigationGuardListenersBound = false;
+let intentionalRoomExit = false;
+
+function saveMultiplayerSession() {
+    if (!currentRoomCode || !currentPlayerId || !currentPlayerName) return;
+
+    sessionStorage.setItem(multiplayerSessionKey, JSON.stringify({
+        roomCode: currentRoomCode,
+        playerId: currentPlayerId,
+        playerName: currentPlayerName,
+        isHost: Boolean(isHost),
+        savedAt: Date.now()
+    }));
+    activateNavigationGuard();
+}
+
+function clearMultiplayerSession() {
+    sessionStorage.removeItem(multiplayerSessionKey);
+}
+
+function hasActiveMultiplayerSession() {
+    return Boolean(currentRoomCode && currentPlayerId && roomRef);
+}
+
+function showNavigationBlockedNotice() {
+    let notice = document.getElementById('navigation-blocked-notice');
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.id = 'navigation-blocked-notice';
+        notice.className = 'navigation-blocked-notice';
+        document.body.appendChild(notice);
+    }
+
+    notice.textContent = '🔒 Usa “Salir sala” para abandonar la partida';
+    notice.classList.add('visible');
+    clearTimeout(window.navigationBlockedNoticeTimer);
+    window.navigationBlockedNoticeTimer = setTimeout(() => {
+        notice.classList.remove('visible');
+    }, 2600);
+}
+
+function shouldBlockNavigation() {
+    return hasActiveMultiplayerSession() && !intentionalRoomExit;
+}
+
+function trapBrowserHistory() {
+    try {
+        history.pushState({ arroyoPoliGuard: Date.now() }, '', window.location.href);
+        history.pushState({ arroyoPoliGuard: Date.now() }, '', window.location.href);
+    } catch (error) {
+        console.warn('No se pudo bloquear el historial:', error);
+    }
+}
+
+function isReloadShortcut(event) {
+    if (event.key === 'F5' || event.keyCode === 116) return true;
+    if (!(event.ctrlKey || event.metaKey)) return false;
+    const key = String(event.key || '').toLowerCase();
+    return key === 'r' || key === 'w';
+}
+
+function bindNavigationGuardListeners() {
+    if (navigationGuardListenersBound) return;
+    navigationGuardListenersBound = true;
+
+    window.addEventListener('beforeunload', (event) => {
+        if (!shouldBlockNavigation()) return;
+        event.preventDefault();
+        event.returnValue = 'Si recargas o cierras, saldrás de la partida.';
+        return event.returnValue;
+    });
+
+    window.addEventListener('popstate', () => {
+        if (!shouldBlockNavigation()) return;
+        trapBrowserHistory();
+        showNavigationBlockedNotice();
+    });
+
+    window.addEventListener('pageshow', (event) => {
+        if (!shouldBlockNavigation()) return;
+        if (event.persisted) trapBrowserHistory();
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (!shouldBlockNavigation() || !isReloadShortcut(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        showNavigationBlockedNotice();
+    }, true);
+
+    document.addEventListener('keyup', (event) => {
+        if (!shouldBlockNavigation() || event.key !== 'F5') return;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+}
+
+function activateNavigationGuard() {
+    if (!shouldBlockNavigation()) return;
+    bindNavigationGuardListeners();
+    trapBrowserHistory();
+    historyGuardActive = true;
+}
+
+bindNavigationGuardListeners();
+
+async function restoreMultiplayerSession() {
+    if (sessionRestoreAttempted || hasActiveMultiplayerSession()) return;
+    sessionRestoreAttempted = true;
+
+    let savedSession;
+    try {
+        savedSession = JSON.parse(sessionStorage.getItem(multiplayerSessionKey) || 'null');
+    } catch (error) {
+        clearMultiplayerSession();
+        return;
+    }
+
+    if (!savedSession || !savedSession.roomCode || !savedSession.playerId || !savedSession.playerName) {
+        return;
+    }
+
+    try {
+        const restoredRoomRef = database.ref(firebaseRoomsPath + savedSession.roomCode);
+        const snapshot = await restoredRoomRef.once('value');
+        const roomData = snapshot.val();
+        const savedPlayer = roomData && roomData.players && roomData.players[savedSession.playerId];
+
+        if (!roomData || roomData.gameId !== firebaseGameId || !savedPlayer) {
+            clearMultiplayerSession();
+            return;
+        }
+
+        currentRoomCode = savedSession.roomCode;
+        currentPlayerId = savedSession.playerId;
+        currentPlayerName = savedSession.playerName;
+        isHost = roomData.host === currentPlayerId || Boolean(savedSession.isHost);
+        roomRef = restoredRoomRef;
+
+        await roomRef.child('players/' + currentPlayerId).update({
+            connected: true,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        });
+        roomRef.child('players/' + currentPlayerId + '/connected').onDisconnect().set(false);
+        roomRef.child('players/' + currentPlayerId + '/voiceActive').onDisconnect().set(false);
+        roomRef.child('players/' + currentPlayerId + '/webcamActive').onDisconnect().set(false);
+
+        if (roomData.gameData && roomData.gameData.gameStarted) {
+            window.latestFirebaseGameData = roomData.gameData;
+        }
+
+        setupRoomListeners();
+        saveMultiplayerSession();
+
+        if (roomData.gameState === 'playing' && roomData.gameData) {
+            showGameScreen();
+        } else {
+            showLobby();
+        }
+
+        updateConnectionStatus('🟢 Sesión recuperada');
+        console.log('✅ Sesión multiplayer recuperada:', currentRoomCode);
+    } catch (error) {
+        sessionRestoreAttempted = false;
+        console.error('❌ No se pudo recuperar la sesión:', error);
+    }
+}
+
+database.ref('.info/connected').on('value', (snapshot) => {
+    if (snapshot.val() === true) {
+        restoreMultiplayerSession();
+    }
+});
 
 // ===== FUNCIONES DE CHAT DE VOZ Y VIDEO P2P (WebRTC + Firebase) =====
 let voiceChatConnected = false;
@@ -766,6 +942,7 @@ window.createRoom = async function() {
         roomRef.child('players/' + currentPlayerId + '/webcamActive').onDisconnect().set(false);
         
         setupRoomListeners();
+        saveMultiplayerSession();
         showLobby();
         updateConnectionStatus('🟢 Sala creada exitosamente');
         
@@ -846,6 +1023,7 @@ window.joinRoom = async function() {
         roomRef.child('players/' + currentPlayerId + '/webcamActive').onDisconnect().set(false);
         
         setupRoomListeners();
+        saveMultiplayerSession();
         showLobby();
         updateConnectionStatus('🟢 Conectado a la sala');
         
@@ -2480,7 +2658,25 @@ window.copyRoomCode = function() {
 
 // Salir de la sala
 window.leaveRoom = function() {
+    if (!intentionalRoomExit && !confirm('¿Salir de la sala? Te desconectarás de la partida.')) {
+        return;
+    }
+
     console.log('🚪 Saliendo de la sala...');
+    intentionalRoomExit = true;
+    historyGuardActive = false;
+    clearMultiplayerSession();
+
+    if (roomRef && currentPlayerId) {
+        const playerRef = roomRef.child('players/' + currentPlayerId);
+        playerRef.onDisconnect().cancel();
+        playerRef.update({
+            connected: false,
+            voiceActive: false,
+            webcamActive: false,
+            lastSeen: firebase.database.ServerValue.TIMESTAMP
+        }).catch((error) => console.warn('No se pudo registrar la salida:', error));
+    }
     
     // Limpiar audio
     if (voiceStream) {
@@ -2510,6 +2706,10 @@ window.leaveRoom = function() {
     videoChatConnected = false;
     
     showMultiplayerScreen();
+    sessionRestoreAttempted = false;
+    setTimeout(() => {
+        intentionalRoomExit = false;
+    }, 0);
     
     console.log('✅ Sala abandonada exitosamente');
 };
