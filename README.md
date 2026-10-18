@@ -6,6 +6,8 @@ Juego de mesa multijugador inspirado en Arroyo de la Miel y Benalmádena.
 
 - Tablero de 40 casillas con calles, monumentos, hoteles, costa y estaciones de Cercanías.
 - Lugares destacados: Puerto Marina, Castillo de Colomares, Teleférico, Plaza de la Mezquita, Benal-Beach y un homenaje a Tívoli.
+- La mitad superior reúne Benalmádena Pueblo y la montaña; la inferior, Arroyo de la Miel y la costa.
+- Solo hay una casilla Brisa del Mar y una Levante y Obras para dar más espacio a calles locales.
 - Ilustraciones originales locales, sin fotografías ni logotipos de terceros.
 - Paleta mediterránea en azul marino, turquesa, coral, arena y amarillo sol.
 

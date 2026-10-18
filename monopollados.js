@@ -840,7 +840,7 @@ function handleCellClick(index) {
 }
 
 function showRules() {
-    var rules = '🎮 REGLAS DE ARROYO-POLI\n\n🎯 OBJETIVO:\n- Ser el último jugador sin bancarrota\n- O reunir Castillo de Colomares y Villa Frente al Mar\n\n💰 ECONOMÍA:\n- Empiezas con €2500\n- Ganas €500 al completar una vuelta\n\n🏗️ MEJORAS:\n- Compra lugares para cobrar alquiler\n- Construye mejoras para aumentar la renta\n- 4 mejoras alcanzan la renta máxima\n\n🌳 PARQUE DE LA PALOMA:\n- Se compra en participaciones del 25%\n- Hasta cuatro jugadores pueden compartirlo\n- El alquiler se reparte de forma proporcional\n\n🏆 ZONAS:\n- Poseer una zona completa duplica el alquiler base\n\n🚆 CERCANÍAS:\n- Las cuatro estaciones se compran por separado\n- Alquiler escalado: 1=€25, 2=€50, 3=€100, 4=€200\n\n🔨 SUBASTAS:\n- Puedes subastar las propiedades que no compres\n\n🏛️ RETENCIÓN MUNICIPAL:\n- Sales con dobles, después de 3 turnos o pagando €50\n\n🔄 INTERCAMBIO:\n- Intercambia propiedades, dinero y cartas\n\n🃏 CARTAS:\n- BRISA DEL MAR aporta oportunidades\n- LEVANTE Y OBRAS plantea contratiempos\n\n💀 BANCARROTA:\n- Si no puedes pagar, se crea una deuda\n- 3 bancarrotas eliminan al jugador\n\n⌨️ ATAJOS:\n- ESPACIO: Tirar dados\n- ENTER: Siguiente jugador';
+    var rules = '🎮 REGLAS DE ARROYO-POLI\n\n🎯 OBJETIVO:\n- Ser el último jugador sin bancarrota\n- O reunir Castillo de Colomares e Higuerón Resort\n\n💰 ECONOMÍA:\n- Empiezas con €2500\n- Ganas €500 al completar una vuelta\n\n🏗️ MEJORAS:\n- Compra lugares para cobrar alquiler\n- Construye mejoras para aumentar la renta\n- 4 mejoras alcanzan la renta máxima\n\n🌳 PARQUE DE LA PALOMA:\n- Se compra en participaciones del 25%\n- Hasta cuatro jugadores pueden compartirlo\n- El alquiler se reparte de forma proporcional\n\n🏆 ZONAS:\n- Poseer una zona completa duplica el alquiler base\n\n🚆 CERCANÍAS:\n- Las cuatro estaciones se compran por separado\n- Alquiler escalado: 1=€25, 2=€50, 3=€100, 4=€200\n\n🔨 SUBASTAS:\n- Puedes subastar las propiedades que no compres\n\n🏛️ RETENCIÓN MUNICIPAL:\n- Sales con dobles, después de 3 turnos o pagando €50\n\n🔄 INTERCAMBIO:\n- Intercambia propiedades, dinero y cartas\n\n🃏 CARTAS:\n- Hay una casilla BRISA DEL MAR y una LEVANTE Y OBRAS\n\n💀 BANCARROTA:\n- Si no puedes pagar, se crea una deuda\n- 3 bancarrotas eliminan al jugador\n\n⌨️ ATAJOS:\n- ESPACIO: Tirar dados\n- ENTER: Siguiente jugador';
     
     alert(rules);
 }
@@ -1000,7 +1000,7 @@ function movePlayer(playerId, steps) {
     // Verificar si pasó por el inicio (posición 0 = DESPERTAR DEL SISTEMA)
     if (oldPosition + steps >= boardCells.length) {
         player.money += 500;
-        addLogEntry('💰 ' + player.name + ' completó el Paseo Marítimo y ganó €500');
+        addLogEntry('💰 ' + player.name + ' completó la vuelta en Plaza de España y ganó €500');
         
         // Intentar pagar deudas automáticamente
         pagarDeudas(playerId);
@@ -1099,8 +1099,8 @@ function handleSpecialAction(player, cellData) {
 
 function handleCorner(player, cellData) {
     switch(cellData.name) {
-        case "PASEO MARÍTIMO":
-            addLogEntry('🌊 ' + player.name + ' disfruta del PASEO MARÍTIMO');
+        case "PLAZA DE ESPAÑA":
+            addLogEntry('🏘️ ' + player.name + ' está en PLAZA DE ESPAÑA');
             finalizarTurnoAutomatico(800);
             break;
         case "RETENCIÓN MUNICIPAL":
@@ -1930,17 +1930,17 @@ function checkWinCondition() {
     for (var i = 0; i < activePlayers.length; i++) {
         var player = activePlayers[i];
         var hasColomares = false;
-        var hasVilla = false;
+        var hasHigueron = false;
         
         for (var j = 0; j < player.properties.length; j++) {
             var index = player.properties[j];
             if (boardCells[index].name === 'CASTILLO DE COLOMARES') hasColomares = true;
-            if (boardCells[index].name === 'VILLA FRENTE AL MAR') hasVilla = true;
+            if (boardCells[index].name === 'HIGUERÓN RESORT') hasHigueron = true;
         }
         
-        if (hasColomares && hasVilla) {
+        if (hasColomares && hasHigueron) {
             gameState = 'ended';
-            addLogEntry('👑 ¡' + player.name + ' ganó con Castillo de Colomares + Villa Frente al Mar!');
+            addLogEntry('👑 ¡' + player.name + ' ganó con Castillo de Colomares + Higuerón Resort!');
             alert('🌊 ¡' + player.name + ' logró la victoria especial de Arroyo-Poli!');
         }
     }
