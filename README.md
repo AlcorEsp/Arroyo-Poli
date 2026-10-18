@@ -2,6 +2,10 @@
 
 Juego de mesa multijugador inspirado en Arroyo de la Miel y Benalmádena.
 
+## Jugar online
+
+Abre [Arroyo-Poli en GitHub Pages](https://alcoresp.github.io/Arroyo-Poli/), crea una sala y comparte el código de seis caracteres.
+
 ## Identidad
 
 - Tablero de 40 casillas con calles, monumentos, hoteles, costa y estaciones de Cercanías.
