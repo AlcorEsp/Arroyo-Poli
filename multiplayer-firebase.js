@@ -12,7 +12,7 @@ let roomRef = null;
 let gameStateRef = null;
 let listenersSetup = false;
 const firebaseGameId = (window.GAME_THEME && window.GAME_THEME.id) || 'arroyo-poli';
-const firebaseRoomsPath = 'rooms/' + firebaseGameId + '_';
+const firebaseRoomsPath = 'rooms/';
 
 // ===== FUNCIONES DE CHAT DE VOZ Y VIDEO P2P (WebRTC + Firebase) =====
 let voiceChatConnected = false;
@@ -739,6 +739,7 @@ window.createRoom = async function() {
         roomRef = database.ref(firebaseRoomsPath + currentRoomCode);
         
         const roomData = {
+            gameId: firebaseGameId,
             host: currentPlayerId,
             players: {
                 [currentPlayerId]: {
@@ -805,6 +806,11 @@ window.joinRoom = async function() {
         
         if (!roomData) {
             alert('❌ La sala no existe');
+            return;
+        }
+
+        if (roomData.gameId !== firebaseGameId) {
+            alert('❌ Este código pertenece a otro juego');
             return;
         }
 
