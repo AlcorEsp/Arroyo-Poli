@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+  <rect width="1200" height="720" rx="32" fill="#8edbe0"/>
+  <circle cx="1010" cy="110" r="68" fill="#f4c95d"/>
+  <path d="M0 390 L160 210 L250 300 L390 130 L610 390 Z" fill="#124a63"/>
+  <path d="M0 420 Q260 340 560 420 T1200 390 L1200 720 L0 720 Z" fill="#0f9faa"/>
+  <path d="M0 430 Q260 350 560 430" fill="none" stroke="#fff1cf" stroke-width="24"/>
+  <path d="M110 100 L550 175" fill="none" stroke="#073b4c" stroke-width="7"/>
+  <path d="M250 125 L242 172" fill="none" stroke="#073b4c" stroke-width="7"/>
+  <rect x="207" y="165" width="72" height="62" rx="18" fill="#f97360" stroke="#073b4c" stroke-width="7"/>
+  <rect x="222" y="179" width="42" height="31" fill="#d9f5f1"/>
+  <g fill="#fff8e8" stroke="#073b4c" stroke-width="6">
+    <path d="M680 390 L680 255 L720 255 L720 215 L760 215 L760 390 Z"/>
+    <path d="M755 390 L755 225 L800 225 L800 165 L845 165 L845 225 L890 225 L890 390 Z"/>
+    <rect x="700" y="315" width="205" height="75"/>
+  </g>
+  <g fill="#f97360">
+    <path d="M680 255 L700 225 L720 255 Z"/>
+    <path d="M755 225 L778 190 L800 225 Z"/>
+    <path d="M800 165 L823 130 L845 165 Z"/>
+    <path d="M845 225 L868 190 L890 225 Z"/>
+  </g>
+  <circle cx="1015" cy="340" r="78" fill="none" stroke="#073b4c" stroke-width="8"/>
+  <line x1="1015" y1="262" x2="1015" y2="418" stroke="#073b4c" stroke-width="6"/>
+  <line x1="937" y1="340" x2="1093" y2="340" stroke="#073b4c" stroke-width="6"/>
+  <line x1="960" y1="285" x2="1070" y2="395" stroke="#073b4c" stroke-width="6"/>
+  <line x1="1070" y1="285" x2="960" y2="395" stroke="#073b4c" stroke-width="6"/>
+  <g transform="translate(390 430)">
+    <path d="M0 45 Q0 0 50 0 L430 0 Q500 0 530 75 L530 110 L0 110 Z" fill="#fff8e8" stroke="#073b4c" stroke-width="9"/>
+    <path d="M40 30 L405 30 Q455 30 478 70 L40 70 Z" fill="#8edbe0"/>
+    <line x1="0" y1="88" x2="530" y2="88" stroke="#f97360" stroke-width="14"/>
+    <circle cx="90" cy="110" r="25" fill="#073b4c"/>
+    <circle cx="435" cy="110" r="25" fill="#073b4c"/>
+  </g>
+  <rect x="190" y="570" width="820" height="125" rx="30" fill="#073b4c" stroke="#f97360" stroke-width="7"/>
+  <text x="600" y="642" text-anchor="middle" fill="#fff1cf" font-family="Arial, sans-serif" font-size="82" font-weight="bold">ARROYO-POLI</text>
+  <text x="600" y="677" text-anchor="middle" fill="#65d2d3" font-family="Arial, sans-serif" font-size="20" font-weight="bold">INVIERTE - COMPARTE - CONQUISTA</text>
+</svg>
