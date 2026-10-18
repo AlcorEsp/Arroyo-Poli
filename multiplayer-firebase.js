@@ -18,6 +18,7 @@ let sessionRestoreAttempted = false;
 let historyGuardActive = false;
 let navigationGuardListenersBound = false;
 let intentionalRoomExit = false;
+let presenceHeartbeatTimer = null;
 
 function saveMultiplayerSession() {
     if (!currentRoomCode || !currentPlayerId || !currentPlayerName) return;
@@ -38,6 +39,37 @@ function clearMultiplayerSession() {
 
 function hasActiveMultiplayerSession() {
     return Boolean(currentRoomCode && currentPlayerId && roomRef);
+}
+
+function isPlayerConnected(player, playerId) {
+    if (!player) return false;
+    if (playerId && playerId === currentPlayerId && hasActiveMultiplayerSession()) return true;
+    return player.connected !== false;
+}
+
+function markPlayerPresence() {
+    if (!hasActiveMultiplayerSession() || intentionalRoomExit) return;
+
+    const playerRef = roomRef.child('players/' + currentPlayerId);
+    playerRef.child('connected').onDisconnect().set(false);
+    playerRef.child('voiceActive').onDisconnect().set(false);
+    playerRef.child('webcamActive').onDisconnect().set(false);
+    playerRef.update({
+        connected: true,
+        lastSeen: firebase.database.ServerValue.TIMESTAMP
+    }).catch((error) => console.warn('No se pudo actualizar la presencia:', error));
+}
+
+function startPresenceHeartbeat() {
+    markPlayerPresence();
+    if (presenceHeartbeatTimer) return;
+    presenceHeartbeatTimer = setInterval(markPlayerPresence, 10000);
+}
+
+function stopPresenceHeartbeat() {
+    if (!presenceHeartbeatTimer) return;
+    clearInterval(presenceHeartbeatTimer);
+    presenceHeartbeatTimer = null;
 }
 
 function showNavigationBlockedNotice() {
@@ -155,13 +187,7 @@ async function restoreMultiplayerSession() {
         isHost = roomData.host === currentPlayerId || Boolean(savedSession.isHost);
         roomRef = restoredRoomRef;
 
-        await roomRef.child('players/' + currentPlayerId).update({
-            connected: true,
-            lastSeen: firebase.database.ServerValue.TIMESTAMP
-        });
-        roomRef.child('players/' + currentPlayerId + '/connected').onDisconnect().set(false);
-        roomRef.child('players/' + currentPlayerId + '/voiceActive').onDisconnect().set(false);
-        roomRef.child('players/' + currentPlayerId + '/webcamActive').onDisconnect().set(false);
+        startPresenceHeartbeat();
 
         if (roomData.gameData && roomData.gameData.gameStarted) {
             window.latestFirebaseGameData = roomData.gameData;
@@ -187,7 +213,12 @@ async function restoreMultiplayerSession() {
 database.ref('.info/connected').on('value', (snapshot) => {
     if (snapshot.val() === true) {
         restoreMultiplayerSession();
+        markPlayerPresence();
     }
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) markPlayerPresence();
 });
 
 // ===== FUNCIONES DE CHAT DE VOZ Y VIDEO P2P (WebRTC + Firebase) =====
@@ -313,7 +344,7 @@ function getOrCreatePeerConnection(remotePlayerId) {
 async function syncLocalMediaWithPeers() {
     if (!roomRef || !currentPlayerId || !playersOnline) return;
     const peerIds = Object.keys(playersOnline).filter(
-        id => id !== currentPlayerId && playersOnline[id] && playersOnline[id].connected
+        id => id !== currentPlayerId && isPlayerConnected(playersOnline[id], id)
     );
 
     for (const remoteId of peerIds) {
@@ -854,7 +885,7 @@ function updateVoiceParticipantsList() {
     const gameList = document.getElementById('participants-list');
     
     const activeVoicePlayers = Object.keys(playersOnline || {}).filter(
-        id => playersOnline[id] && playersOnline[id].connected && playersOnline[id].voiceActive
+        id => isPlayerConnected(playersOnline[id], id) && playersOnline[id].voiceActive
     );
 
     if (activeVoicePlayers.length > 0) {
@@ -936,13 +967,9 @@ window.createRoom = async function() {
 
         await roomRef.set(roomData);
         
-        // Marcar solo al jugador como desconectado si recarga, sin destruir la partida en curso
-        roomRef.child('players/' + currentPlayerId + '/connected').onDisconnect().set(false);
-        roomRef.child('players/' + currentPlayerId + '/voiceActive').onDisconnect().set(false);
-        roomRef.child('players/' + currentPlayerId + '/webcamActive').onDisconnect().set(false);
-        
         setupRoomListeners();
         saveMultiplayerSession();
+        startPresenceHeartbeat();
         showLobby();
         updateConnectionStatus('🟢 Sala creada exitosamente');
         
@@ -1018,12 +1045,9 @@ window.joinRoom = async function() {
             webcamActive: false
         });
         
-        roomRef.child('players/' + currentPlayerId + '/connected').onDisconnect().set(false);
-        roomRef.child('players/' + currentPlayerId + '/voiceActive').onDisconnect().set(false);
-        roomRef.child('players/' + currentPlayerId + '/webcamActive').onDisconnect().set(false);
-        
         setupRoomListeners();
         saveMultiplayerSession();
+        startPresenceHeartbeat();
         showLobby();
         updateConnectionStatus('🟢 Conectado a la sala');
         
@@ -1143,7 +1167,7 @@ function getRandomAvatar() {
 
 // Inicializar estado del juego (ordenado consistentemente por llegada)
 function initializeGame(playersOnline) {
-    const connectedPlayers = getSortedPlayerIds(playersOnline).filter(id => playersOnline[id].connected);
+    const connectedPlayers = getSortedPlayerIds(playersOnline).filter(id => isPlayerConnected(playersOnline[id], id));
     const startingMoney = (window.GAME_THEME && window.GAME_THEME.startingMoney) || 2500;
     const startingFollowers = (window.GAME_THEME && window.GAME_THEME.startingFollowers) || 100;
     
@@ -1196,7 +1220,7 @@ window.startMultiplayerGame = async function() {
     }
     
     const playerCount = getSortedPlayerIds(playersOnline)
-        .filter(id => playersOnline[id] && playersOnline[id].connected).length;
+        .filter(id => isPlayerConnected(playersOnline[id], id)).length;
     console.log('👥 Número de jugadores:', playerCount);
     
     if (playerCount < 2) {
@@ -1461,7 +1485,7 @@ function addMultiplayerGameInfo() {
         const player = playersOnline[playerId];
         if (!player) return;
         const isCurrentPlayer = playerId === currentPlayerId;
-        const status = player.connected ? '🟢' : '🔴';
+        const status = isPlayerConnected(player, playerId) ? '🟢' : '🔴';
         const avatar = player.avatar || '👤';
         const badge = isCurrentPlayer ? ' (TÚ)' : '';
         
@@ -1516,7 +1540,7 @@ function initializeRealGame() {
         } else {
             // Limpiar jugadores previos y crear desde Firebase (ordenado consistentemente por llegada)
             window.players = [];
-            const connectedPlayers = getSortedPlayerIds(playersOnline).filter(id => playersOnline[id].connected);
+            const connectedPlayers = getSortedPlayerIds(playersOnline).filter(id => isPlayerConnected(playersOnline[id], id));
             
             connectedPlayers.forEach((playerId, index) => {
                 const playerData = playersOnline[playerId];
@@ -2583,14 +2607,15 @@ function updatePlayersDisplay(players) {
     
     Object.keys(players).forEach((playerId) => {
         const player = players[playerId];
-        const isOnline = player.connected;
+        const isOnline = isPlayerConnected(player, playerId);
         const status = isOnline ? '🟢' : '🔴';
         const hostBadge = player.avatar === '👑' ? ' (Host)' : '';
         const avatar = player.avatar || '👤';
+        const connectionLabel = isOnline ? '' : ' · desconectado';
         
         html += `
             <div class="player-item ${isOnline ? 'online' : 'offline'}">
-                ${status} ${avatar} ${player.name}${hostBadge}
+                ${status} ${avatar} ${player.name}${hostBadge}${connectionLabel}
             </div>
         `;
     });
@@ -2665,6 +2690,7 @@ window.leaveRoom = function() {
     console.log('🚪 Saliendo de la sala...');
     intentionalRoomExit = true;
     historyGuardActive = false;
+    stopPresenceHeartbeat();
     clearMultiplayerSession();
 
     if (roomRef && currentPlayerId) {
