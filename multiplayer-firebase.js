@@ -1017,7 +1017,8 @@ window.startMultiplayerGame = async function() {
         return;
     }
     
-    const playerCount = Object.keys(playersOnline).length;
+    const playerCount = getSortedPlayerIds(playersOnline)
+        .filter(id => playersOnline[id] && playersOnline[id].connected).length;
     console.log('👥 Número de jugadores:', playerCount);
     
     if (playerCount < 2) {
@@ -1140,7 +1141,56 @@ function showLobby() {
     }
 }
 
-// Mostrar pantalla de juego - VERSION SIMPLIFICADA
+function hasValidInitialGameData(gameData) {
+    return Boolean(
+        gameData &&
+        gameData.gameStarted &&
+        Array.isArray(gameData.players) &&
+        gameData.players.length > 0
+    );
+}
+
+async function getInitialGameData() {
+    if (hasValidInitialGameData(window.latestFirebaseGameData)) {
+        return window.latestFirebaseGameData;
+    }
+
+    if (!roomRef) return null;
+
+    try {
+        const snapshot = await Promise.race([
+            roomRef.child('gameData').once('value'),
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Tiempo de espera agotado')), 10000);
+            })
+        ]);
+        const gameData = snapshot.val();
+
+        if (hasValidInitialGameData(gameData)) {
+            window.latestFirebaseGameData = gameData;
+            return gameData;
+        }
+    } catch (error) {
+        console.error('❌ No se pudieron cargar los datos iniciales:', error);
+    }
+
+    return null;
+}
+
+function showGameSyncError() {
+    const currentPlayerDisplay = document.getElementById('current-player');
+    if (!currentPlayerDisplay) return;
+
+    currentPlayerDisplay.innerHTML = `
+        <div class="game-sync-error">
+            <strong>⚠️ NO SE PUDO SINCRONIZAR</strong>
+            <small>Comprueba la conexión y vuelve a intentarlo.</small>
+            <button type="button" onclick="showGameScreen()">🔄 REINTENTAR</button>
+        </div>
+    `;
+}
+
+// Mostrar la pantalla solo después de recuperar un estado inicial válido.
 function showGameScreen() {
     console.log('🎮 Mostrando pantalla de juego...');
     
@@ -1151,14 +1201,45 @@ function showGameScreen() {
     document.getElementById('game-container').style.display = 'block';
     
     console.log('✅ Pantallas cambiadas correctamente');
-    
-    // Inicializar el juego real y mostrar info de jugadores
-    setTimeout(() => {
+
+    if (window.gameScreenInitialization) {
+        return window.gameScreenInitialization;
+    }
+
+    const currentPlayerDisplay = document.getElementById('current-player');
+    if (currentPlayerDisplay) {
+        currentPlayerDisplay.innerHTML = `
+            <div class="game-sync-loading">
+                <strong>🔄 SINCRONIZANDO PARTIDA</strong>
+                <small>Cargando jugadores y tablero...</small>
+            </div>
+        `;
+    }
+
+    window.gameScreenInitialization = (async () => {
+        const gameData = await getInitialGameData();
+
+        if (!gameData) {
+            showGameSyncError();
+            return false;
+        }
+
+        window.latestFirebaseGameData = gameData;
         initializeRealGame();
+        syncCompleteGameState(gameData);
         addMultiplayerGameInfo();
         updateWebcamPlayerNames();
-        console.log('✅ Juego real inicializado con info multiplayer');
-    }, 500);
+        console.log('✅ Juego real inicializado con datos validados');
+        return true;
+    })().catch((error) => {
+        console.error('❌ Error preparando la pantalla de juego:', error);
+        showGameSyncError();
+        return false;
+    }).finally(() => {
+        window.gameScreenInitialization = null;
+    });
+
+    return window.gameScreenInitialization;
 }
 
 // Agregar información de multiplayer al juego (integrado en columna derecha sin tapar el tablero)
